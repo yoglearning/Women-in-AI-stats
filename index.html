@@ -95,6 +95,7 @@
     position: relative;
     width: 100%;
     height: 680px;
+    overflow: hidden;
     z-index: 2;
   }
 
@@ -103,6 +104,8 @@
     inset: 0;
     width: 100%;
     height: 100%;
+    z-index: 1;
+    pointer-events: none;
   }
 
   /* Bubble overlays (HTML divs positioned over canvas) */
@@ -119,6 +122,7 @@
     transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     user-select: none;
     transform-origin: center;
+    z-index: 2;
   }
 
   .bubble:hover { transform: scale(1.08); }
@@ -522,23 +526,48 @@ const universe = document.getElementById('universe');
 const canvas = document.getElementById('lines-canvas');
 const ctx = canvas.getContext('2d');
 let W, H;
+let DPR = 1;
 let activeBubble = null;
 const bubbleEls = [];
+const layoutCenters = [];
 
 function resize() {
   W = universe.offsetWidth;
   H = universe.offsetHeight;
-  canvas.width = W;
-  canvas.height = H;
+  DPR = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.lineCap = 'round';
   positionBubbles();
   drawLines();
+}
+
+function clamp(value, min, max) {
+  if (min > max) return (min + max) * 0.5;
+  return Math.max(min, Math.min(max, value));
+}
+
+function getClampedCenter(s) {
+  const marginX = Math.max(28, Math.min(56, W * 0.06));
+  const marginY = Math.max(20, Math.min(48, H * 0.05));
+  const minX = s.size / 2 + marginX;
+  const maxX = W - s.size / 2 - marginX;
+  const minY = s.size / 2 + marginY;
+  const maxY = H - s.size / 2 - marginY;
+  return [
+    clamp(s.x * W, minX, maxX),
+    clamp(s.y * H, minY, maxY)
+  ];
 }
 
 function positionBubbles() {
   bubbleEls.forEach((el, i) => {
     const s = STATS[i];
-    const x = s.x * W - s.size / 2;
-    const y = s.y * H - s.size / 2;
+    const [cx, cy] = getClampedCenter(s);
+    layoutCenters[i] = [cx, cy];
+    const x = cx - s.size / 2;
+    const y = cy - s.size / 2;
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     el.style.width = s.size + 'px';
@@ -547,7 +576,7 @@ function positionBubbles() {
 }
 
 function getCenterXY(s) {
-  return [s.x * W, s.y * H];
+  return layoutCenters[s.id] || getClampedCenter(s);
 }
 
 function drawLines(activeId = null) {
@@ -567,20 +596,25 @@ function drawLines(activeId = null) {
       ctx.lineTo(x2, y2);
 
       if (isHighlighted) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.62)';
+        ctx.lineWidth = 2.2;
+        ctx.shadowBlur = 9;
+        ctx.shadowColor = 'rgba(232,201,122,0.45)';
         ctx.setLineDash([]);
       } else if (isDimmed) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1.1;
+        ctx.shadowBlur = 0;
         ctx.setLineDash([]);
       } else {
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 6]);
+        ctx.strokeStyle = 'rgba(232,201,122,0.30)';
+        ctx.lineWidth = 1.4;
+        ctx.shadowBlur = 0;
+        ctx.setLineDash([6, 8]);
       }
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
     });
   });
 }
@@ -597,7 +631,7 @@ function createBubbles() {
     el.innerHTML = `
       <div class="bubble-inner" style="background:${s.bg};">
         <div class="bubble-stat" style="font-size:${statFontSize};color:${s.color}">${s.stat}</div>
-        <div class="bubble-label">${s.label.replace('\n','<br>')}</div>
+        <div class="bubble-label">${s.label.replace(/\n/g, '<br>')}</div>
       </div>
     `;
 
@@ -628,7 +662,7 @@ function openPanel(id) {
     const cs = STATS[cid];
     const tag = document.createElement('span');
     tag.className = 'conn-tag';
-    tag.textContent = cs.stat + ' ' + cs.label.replace('\n',' ');
+    tag.textContent = cs.stat + ' ' + cs.label.replace(/\n/g, ' ');
     tag.style.background = cs.bg;
     tag.style.color = cs.color;
     tag.style.border = `1px solid ${cs.color}44`;
