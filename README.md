@@ -2,7 +2,7 @@
 
 An interactive stats constellation built for **The Great AI Adventure** blog.
 
-**Live demo:** [View on GitHub Pages](https://yourusername.github.io/tgaia-women-ai-stats)
+**Live demo:** [View on GitHub Pages](https://yoglearning.github.io/Women-in-AI-stats/)
 
 ## About
 
@@ -39,4 +39,4 @@ Pure HTML, CSS, and vanilla JavaScript. No dependencies. No frameworks.
 
 ---
 
-*Part of [The Great AI Adventure](https://medium.com) — experiments in building tools, ideas, and possibilities with AI.*
+*Part of [The Great AI Adventure](https://medium.com/@thegreataiadventure) — experiments in building tools, ideas, and possibilities with AI.*
