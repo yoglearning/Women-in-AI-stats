@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Women & AI — The Numbers</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --gold: #e8c97a;
+    --rose: #e87a9f;
+    --teal: #7ae8d4;
+    --lavender: #b07ae8;
+    --text: #f0eee8;
+    --muted: #6b6880;
+    --line: rgba(232, 201, 122, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  header {
+    text-align: center;
+    padding: 56px 24px 32px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .eyebrow {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--text);
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.4s;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .subtitle {
+    margin-top: 14px;
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.6s;
+  }
+
+  .instruction {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--rose);
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.8s;
+  }
+
+  /* Canvas container */
+  #universe {
+    position: relative;
+    width: 100%;
+    height: 680px;
+    z-index: 2;
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Bubble overlays (HTML divs positioned over canvas) */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    text-align: center;
+    padding: 12px;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    user-select: none;
+    transform-origin: center;
+  }
+
+  .bubble:hover { transform: scale(1.08); }
+  .bubble.active { transform: scale(1.12); }
+  .bubble.dimmed { opacity: 0.25; transform: scale(0.95); }
+
+  .bubble-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .bubble.active .bubble-inner {
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: 0 0 40px rgba(255,255,255,0.08);
+  }
+
+  .bubble-stat {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .bubble-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.7);
+    margin-top: 4px;
+    text-transform: uppercase;
+    line-height: 1.3;
+    padding: 0 8px;
+  }
+
+  /* Info panel */
+  #info-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 24px 32px;
+    z-index: 100;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    max-height: 260px;
+  }
+
+  #info-panel.visible { transform: translateY(0); }
+
+  .panel-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .panel-stat {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 1;
+    min-width: 120px;
+  }
+
+  .panel-content {}
+
+  .panel-category {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 6px;
+    opacity: 0.6;
+  }
+
+  .panel-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .panel-desc {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: rgba(240,238,232,0.75);
+    font-weight: 300;
+  }
+
+  .panel-connections {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .conn-tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+    opacity: 0.85;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .conn-tag:hover { opacity: 1; }
+
+  .close-btn {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.2s;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 0 24px 40px;
+    position: relative;
+    z-index: 2;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 1s;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Source line */
+  .sources {
+    text-align: center;
+    padding: 0 24px 48px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+    position: relative;
+    z-index: 2;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(232,201,122,0.3); }
+    70% { box-shadow: 0 0 0 16px rgba(232,201,122,0); }
+    100% { box-shadow: 0 0 0 0 rgba(232,201,122,0); }
+  }
+
+  .bubble.pulse .bubble-inner {
+    animation: pulse-ring 2s ease-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">The Great AI Adventure &nbsp;·&nbsp; Women's Day Edition</div>
+  <h1>Women & AI:<br><em>The Numbers</em></h1>
+  <p class="subtitle">An interactive constellation of statistics — click any bubble to explore</p>
+  <p class="instruction">↓ tap a bubble to see the full story</p>
+</header>
+
+<div id="universe">
+  <canvas id="lines-canvas"></canvas>
+  <!-- Bubbles injected by JS -->
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e87a9f"></div> Risk & Displacement</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e8c97a"></div> Workforce Gap</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#7ae8d4"></div> Momentum</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#b07ae8"></div> Confidence Gap</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e87a9f;opacity:0.6"></div> Hidden Bias</div>
+</div>
+
+<div class="sources">
+  Sources: ILO, World Economic Forum, Deloitte, Paris School of Economics,<br>
+  IT for Change, LinkedIn Economic Graph, WEF Global Gender Gap Report 2025
+</div>
+
+<!-- Info Panel -->
+<div id="info-panel">
+  <button class="close-btn" onclick="closePanel()">✕</button>
+  <div class="panel-inner">
+    <div class="panel-stat" id="panel-stat"></div>
+    <div class="panel-content">
+      <div class="panel-category" id="panel-category"></div>
+      <div class="panel-title" id="panel-title"></div>
+      <div class="panel-desc" id="panel-desc"></div>
+      <div class="panel-connections" id="panel-connections"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATS = [
+  {
+    id: 0,
+    stat: "57%",
+    label: "jobs at risk\nare women's",
+    category: "Risk & Displacement",
+    title: "Women hold the majority of at-risk jobs",
+    desc: "57% of all jobs currently at risk of automation are held by women. Female-dominated roles — clerical, administrative, translation — rely heavily on text processing and scheduling, the exact capabilities AI is engineered to replicate.",
+    color: "#e87a9f",
+    bg: "rgba(232,122,159,0.12)",
+    size: 130,
+    connects: [1, 2, 5, 9],
+    x: 0.18, y: 0.20
+  },
+  {
+    id: 1,
+    stat: "29%",
+    label: "female roles\nhighly exposed",
+    category: "Risk & Displacement",
+    title: "Female roles face almost double the AI exposure",
+    desc: "The ILO analyzed 436 occupations globally. 29% of female-dominated jobs face high AI exposure — compared to only 16% of male-dominated roles. Nearly double. In high-income countries, 41% of total employment is exposed to this disruption.",
+    color: "#e87a9f",
+    bg: "rgba(232,122,159,0.10)",
+    size: 108,
+    connects: [0, 2],
+    x: 0.36, y: 0.10
+  },
+  {
+    id: 2,
+    stat: "22%",
+    label: "of AI workforce\nis women",
+    category: "Workforce Gap",
+    title: "Women build just a fraction of the AI shaping our world",
+    desc: "Women hold only 22% of global AI roles — dropping to 15% at senior levels, and just 10% at CEO and top leadership positions. The tools being built to serve everyone are made by a very narrow demographic. At the 2017 ACL conference, just 24% of participants were women.",
+    color: "#e8c97a",
+    bg: "rgba(232,201,122,0.12)",
+    size: 140,
+    connects: [0, 3, 6, 8, 10],
+    x: 0.63, y: 0.16,
+    pulse: true
+  },
+  {
+    id: 3,
+    stat: "12%",
+    label: "women in\ndata science",
+    category: "Workforce Gap",
+    title: "The deeper you go, the fewer women you find",
+    desc: "Women hold just 12% of data science roles and 15% of cloud computing positions globally. In computing degree specialties — graphics, hardware, security, robotics — only 19.7% of degrees go to women out of 8,777 total. The gap widens dramatically as specialization increases.",
+    color: "#e8c97a",
+    bg: "rgba(232,201,122,0.10)",
+    size: 120,
+    connects: [2, 4],
+    x: 0.82, y: 0.26
+  },
+  {
+    id: 4,
+    stat: "300%",
+    label: "growth in\nIndia startups",
+    category: "Momentum",
+    title: "Women-led AI startups in India exploded",
+    desc: "Women-led AI startups in India grew 300% between 2020 and 2024 — from around 520 to an estimated 2,100 companies. They're building in health tech (26%), ed tech (21%), and e-commerce (18%), solving problems that mainstream tech has historically ignored.",
+    color: "#7ae8d4",
+    bg: "rgba(122,232,212,0.10)",
+    size: 112,
+    connects: [5, 7, 3],
+    x: 0.84, y: 0.50
+  },
+  {
+    id: 5,
+    stat: "3×",
+    label: "US women's\nAI adoption",
+    category: "Momentum",
+    title: "Women are adopting AI faster than men",
+    desc: "In the past year, the proportion of US women adopting generative AI tripled — outpacing men who grew at 2.2x. Deloitte projects women will match or surpass men in AI adoption in the US by end of 2025. The gap is closing fast.",
+    color: "#7ae8d4",
+    bg: "rgba(122,232,212,0.12)",
+    size: 128,
+    connects: [0, 4, 6],
+    x: 0.18, y: 0.62,
+    pulse: true
+  },
+  {
+    id: 6,
+    stat: "77%",
+    label: "EU female\nfounders use AI",
+    category: "Momentum",
+    title: "European women founders are all in on AI",
+    desc: "77% of female founders in Europe are actively leveraging AI to scale their businesses. In 2024 alone, this contributed to €5.76 billion in funding — a third of which went into deep tech: advanced AI, quantum computing, synthetic biology.",
+    color: "#7ae8d4",
+    bg: "rgba(122,232,212,0.10)",
+    size: 105,
+    connects: [5, 2, 7],
+    x: 0.50, y: 0.78
+  },
+  {
+    id: 7,
+    stat: "18%",
+    label: "women feel\nvery confident",
+    category: "Confidence Gap",
+    title: "The confidence gap is holding women back — but it's not what you think",
+    desc: "Only 18% of female students felt 'very confident' about AI prompts vs 40%+ of men. But here's the twist: when researchers controlled for perception and trust, the 15-point gender gap in AI usage collapsed to just 0.8 percentage points. The gap isn't innate — it's constructed.",
+    color: "#b07ae8",
+    bg: "rgba(176,122,232,0.12)",
+    size: 118,
+    connects: [8, 5, 6, 11],
+    x: 0.68, y: 0.68,
+    pulse: true
+  },
+  {
+    id: 8,
+    stat: "88%",
+    label: "low-grade women\nuse AI heavily",
+    category: "Confidence Gap",
+    title: "The pattern of AI use is completely different for women",
+    desc: "For men, high AI usage stays constant (75–87%) regardless of academic grade. For women, the pattern flips: 88% of women in the bottom academic quintiles are heavy AI users, compared to less than 55% of top-performing women. High-achieving women use AI less — and it may be costing them.",
+    color: "#b07ae8",
+    bg: "rgba(176,122,232,0.10)",
+    size: 108,
+    connects: [7, 2, 11],
+    x: 0.38, y: 0.86
+  },
+  {
+    id: 9,
+    stat: "700%",
+    label: "APR debt\ntraps",
+    category: "Hidden Bias",
+    title: "Algorithmic credit scoring is trapping women invisibly",
+    desc: "AI lenders like Wonga use up to 8,000 data points — social media, mobile usage, gaming patterns — delivering decisions in 6 minutes. Women flagged as 'high risk' due to career breaks get approved but with APRs of 300%–700%. One consumer had his credit limit slashed from $10,800 to $3,800 simply because others who shopped where he shopped had bad credit.",
+    color: "#e87a9f",
+    bg: "rgba(232,122,159,0.10)",
+    size: 102,
+    connects: [0, 2, 10],
+    x: 0.06, y: 0.46
+  },
+  {
+    id: 10,
+    stat: "22yrs",
+    label: "to close\ngender data gap",
+    category: "Hidden Bias",
+    title: "We're invisible in the data — and AI learns from that",
+    desc: "At the current rate of data production, it will take 22 years for all countries to make SDG gender data fully available. And women were only mandated to be included in US clinical trials in 1993. AI trained on this incomplete history inherits every blind spot. Getting a diagnosis for endometriosis takes an average of 7–10 years — partly because the data barely exists.",
+    color: "#e87a9f",
+    bg: "rgba(232,122,159,0.11)",
+    size: 116,
+    connects: [2, 9, 1],
+    x: 0.06, y: 0.24,
+    pulse: true
+  },
+  {
+    id: 11,
+    stat: "0.8pt",
+    label: "gap when\nperception fixed",
+    category: "Confidence Gap",
+    title: "Change the perception, close the gap",
+    desc: "The raw 15 percentage-point gender gap in AI adoption drops to just 0.8 points when you control for risk tolerance, trust, and perceived usefulness. The gap isn't hardwired — it's driven entirely by how women perceive AI and whether they feel it's for them. Change the narrative, change the number.",
+    color: "#b07ae8",
+    bg: "rgba(176,122,232,0.09)",
+    size: 94,
+    connects: [7, 8, 5],
+    x: 0.50, y: 0.48
+  }
+];
+
+// Position bubbles
+const universe = document.getElementById('universe');
+const canvas = document.getElementById('lines-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+let activeBubble = null;
+const bubbleEls = [];
+
+function resize() {
+  W = universe.offsetWidth;
+  H = universe.offsetHeight;
+  canvas.width = W;
+  canvas.height = H;
+  positionBubbles();
+  drawLines();
+}
+
+function positionBubbles() {
+  bubbleEls.forEach((el, i) => {
+    const s = STATS[i];
+    const x = s.x * W - s.size / 2;
+    const y = s.y * H - s.size / 2;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = s.size + 'px';
+    el.style.height = s.size + 'px';
+  });
+}
+
+function getCenterXY(s) {
+  return [s.x * W, s.y * H];
+}
+
+function drawLines(activeId = null) {
+  ctx.clearRect(0, 0, W, H);
+  STATS.forEach(s => {
+    s.connects.forEach(tid => {
+      if (tid <= s.id) return; // draw each line once
+      const t = STATS[tid];
+      const [x1, y1] = getCenterXY(s);
+      const [x2, y2] = getCenterXY(t);
+
+      const isHighlighted = activeId !== null && (s.id === activeId || t.id === activeId);
+      const isDimmed = activeId !== null && !isHighlighted;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+
+      if (isHighlighted) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+      } else if (isDimmed) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+      } else {
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  });
+}
+
+function createBubbles() {
+  STATS.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'bubble' + (s.pulse ? ' pulse' : '');
+    el.dataset.id = i;
+    el.style.animationDelay = (i * 0.08) + 's';
+
+    const statFontSize = s.size > 120 ? '1.6rem' : s.size > 100 ? '1.3rem' : '1.1rem';
+
+    el.innerHTML = `
+      <div class="bubble-inner" style="background:${s.bg};">
+        <div class="bubble-stat" style="font-size:${statFontSize};color:${s.color}">${s.stat}</div>
+        <div class="bubble-label">${s.label.replace('\n','<br>')}</div>
+      </div>
+    `;
+
+    // Float animation offset
+    el.style.animation = `float ${3.5 + i * 0.3}s ease-in-out ${i * 0.2}s infinite`;
+
+    el.addEventListener('click', () => openPanel(i));
+    universe.appendChild(el);
+    bubbleEls.push(el);
+  });
+}
+
+function openPanel(id) {
+  const s = STATS[id];
+  activeBubble = id;
+
+  // Update panel content
+  document.getElementById('panel-stat').textContent = s.stat;
+  document.getElementById('panel-stat').style.color = s.color;
+  document.getElementById('panel-category').textContent = s.category;
+  document.getElementById('panel-title').textContent = s.title;
+  document.getElementById('panel-desc').textContent = s.desc;
+
+  // Connection tags
+  const connEl = document.getElementById('panel-connections');
+  connEl.innerHTML = '<span style="font-size:11px;color:var(--muted);margin-right:4px;">Connected to →</span>';
+  s.connects.forEach(cid => {
+    const cs = STATS[cid];
+    const tag = document.createElement('span');
+    tag.className = 'conn-tag';
+    tag.textContent = cs.stat + ' ' + cs.label.replace('\n',' ');
+    tag.style.background = cs.bg;
+    tag.style.color = cs.color;
+    tag.style.border = `1px solid ${cs.color}44`;
+    tag.addEventListener('click', (e) => { e.stopPropagation(); openPanel(cid); });
+    connEl.appendChild(tag);
+  });
+
+  // Update bubble states
+  bubbleEls.forEach((el, i) => {
+    el.classList.remove('active', 'dimmed');
+    if (i === id) {
+      el.classList.add('active');
+    } else if (!s.connects.includes(i)) {
+      el.classList.add('dimmed');
+    }
+  });
+
+  drawLines(id);
+
+  document.getElementById('info-panel').classList.add('visible');
+}
+
+function closePanel() {
+  activeBubble = null;
+  document.getElementById('info-panel').classList.remove('visible');
+  bubbleEls.forEach(el => el.classList.remove('active', 'dimmed'));
+  drawLines();
+}
+
+// Init
+createBubbles();
+resize();
+window.addEventListener('resize', resize);
+
+// Close panel on canvas click
+universe.addEventListener('click', (e) => {
+  if (e.target === canvas || e.target === universe) closePanel();
+});
+</script>
+</body>
+</html>
